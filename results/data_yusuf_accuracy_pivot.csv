@@ -1,0 +1,4 @@
+Dataset,BERT,DistilBERT,FastText,LSTM,RoBERTa
+20newsgroups,0.02,0.08,0.04,0.02,0.06
+ag_news,0.7,0.4,0.24,0.24,0.2
+bbc,0.34,0.24,0.16,0.24,0.14

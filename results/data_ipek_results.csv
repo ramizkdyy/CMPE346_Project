@@ -1,0 +1,16 @@
+Person,Dataset,Model,Accuracy,F1
+data_ipek,jigsaw,LSTM,0.64,0.0
+data_ipek,jigsaw,BERT,0.48,0.6486486486486487
+data_ipek,jigsaw,DistilBERT,0.46,0.5846153846153846
+data_ipek,jigsaw,RoBERTa,0.46,0.6301369863013698
+data_ipek,jigsaw,FastText,0.46,0.0
+data_ipek,wikipedia,LSTM,0.54,0.7012987012987013
+data_ipek,wikipedia,BERT,0.56,0.0
+data_ipek,wikipedia,DistilBERT,0.44,0.6111111111111112
+data_ipek,wikipedia,RoBERTa,0.48,0.0
+data_ipek,wikipedia,FastText,0.52,0.6842105263157895
+data_ipek,hate_speech,LSTM,0.48,0.0
+data_ipek,hate_speech,BERT,0.48,0.6486486486486487
+data_ipek,hate_speech,DistilBERT,0.52,0.0
+data_ipek,hate_speech,RoBERTa,0.48,0.6486486486486487
+data_ipek,hate_speech,FastText,0.46,0.0

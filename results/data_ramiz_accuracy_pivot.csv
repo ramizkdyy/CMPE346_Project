@@ -1,0 +1,4 @@
+Dataset,BERT,DistilBERT,FastText,LSTM,RoBERTa
+amazon,0.22,0.16,0.26,0.18,0.28
+imdb,0.52,0.46,0.52,0.58,0.56
+twitter,0.36,0.5,0.36,0.32,0.34

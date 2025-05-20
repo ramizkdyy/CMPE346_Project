@@ -22,7 +22,8 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
     model.train()
     epoch_loss = 0
     
-    for batch in tqdm(dataloader, desc="Eğitim", leave=False):
+    # tqdm göstergesi kullanma
+    for batch in dataloader:
         # Veriyi cihaza taşı
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
@@ -68,7 +69,8 @@ def evaluate(model, dataloader, criterion, device):
     all_labels = []
     
     with torch.no_grad():
-        for batch in tqdm(dataloader, desc="Değerlendirme", leave=False):
+        # tqdm göstergesi kullanma
+        for batch in dataloader:
             # Veriyi cihaza taşı
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
@@ -104,7 +106,7 @@ def evaluate(model, dataloader, criterion, device):
     return epoch_loss / len(dataloader), accuracy, f1
 
 def train_model(model, train_dataloader, val_dataloader, optimizer, criterion, device, 
-                num_epochs=5, patience=2, model_save_path=None):
+                num_epochs=2, patience=1, model_save_path=None):
     """
     Modeli eğitir ve değerlendirir
     
@@ -153,10 +155,7 @@ def train_model(model, train_dataloader, val_dataloader, optimizer, criterion, d
         val_f1s.append(val_f1)
         
         # Sonuçları yazdır
-        print(f"\tEğitim Kaybı: {train_loss:.4f}")
-        print(f"\tDoğrulama Kaybı: {val_loss:.4f}")
-        print(f"\tDoğrulama Doğruluğu: {val_acc:.4f}")
-        print(f"\tDoğrulama F1 Skoru: {val_f1:.4f}")
+        print(f"\tEğitim Kaybı: {train_loss:.4f} | Doğrulama: Kayıp={val_loss:.4f}, Acc={val_acc:.4f}, F1={val_f1:.4f}")
         
         # En iyi modeli kaydet
         if val_f1 > best_val_f1:
@@ -195,8 +194,6 @@ def test_model(model, test_dataloader, criterion, device):
     test_loss, test_acc, test_f1 = evaluate(model, test_dataloader, criterion, device)
     
     # Sonuçları yazdır
-    print(f"Test Kaybı: {test_loss:.4f}")
-    print(f"Test Doğruluğu: {test_acc:.4f}")
-    print(f"Test F1 Skoru: {test_f1:.4f}")
+    print(f"Test Sonucu: Kayıp={test_loss:.4f}, Doğruluk={test_acc:.4f}, F1={test_f1:.4f}")
     
     return test_loss, test_acc, test_f1

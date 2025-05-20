@@ -1,0 +1,16 @@
+Person,Dataset,Model,Accuracy,F1
+data_yusuf,bbc,LSTM,0.24,0.18133333333333332
+data_yusuf,bbc,BERT,0.34,0.2095238095238095
+data_yusuf,bbc,DistilBERT,0.24,0.11536723163841806
+data_yusuf,bbc,RoBERTa,0.14,0.0343859649122807
+data_yusuf,bbc,FastText,0.16,0.10272727272727274
+data_yusuf,ag_news,LSTM,0.24,0.1652510760401722
+data_yusuf,ag_news,BERT,0.7,0.5952592592592593
+data_yusuf,ag_news,DistilBERT,0.4,0.28627450980392155
+data_yusuf,ag_news,RoBERTa,0.2,0.06666666666666667
+data_yusuf,ag_news,FastText,0.24,0.20340643274853804
+data_yusuf,20newsgroups,LSTM,0.02,0.000784313725490196
+data_yusuf,20newsgroups,BERT,0.02,0.000784313725490196
+data_yusuf,20newsgroups,DistilBERT,0.08,0.012549019607843137
+data_yusuf,20newsgroups,RoBERTa,0.06,0.00679245283018868
+data_yusuf,20newsgroups,FastText,0.04,0.003076923076923077

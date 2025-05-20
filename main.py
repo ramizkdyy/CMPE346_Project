@@ -22,24 +22,42 @@ from models.transformer_models import (
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Kullanılan cihaz: {device}")
 
-# Konfigürasyon
+# Konfigürasyon - EXTRA HIZLI
 CONFIG = {
-    "batch_size": 16,
-    "max_length": 128,
-    "num_epochs": 3,
-    "learning_rate": 2e-5,
-    "patience": 2,
+    "batch_size": 32,      # Artırılmış batch boyutu
+    "max_length": 64,      # Daha kısa token uzunluğu
+    "num_epochs": 1,       # SADECE 1 EPOCH
+    "learning_rate": 5e-5, # Biraz daha yüksek öğrenme oranı
+    "patience": 1,         # Daha az bekleme süresi
+    
+    # Örnek sayıları
+    "max_train_samples": 100,    # Çok az eğitim örnekleri (süper hızlı test için)
+    "max_test_samples": 50,     # Çok az test örnekleri
+    
+    # LSTM konfigürasyonu - hafifleştirilmiş
     "lstm_config": {
-        "embedding_dim": 300,
-        "hidden_dim": 256,
-        "n_layers": 2,
+        "embedding_dim": 100,  # Daha küçük embedding boyutu
+        "hidden_dim": 128,     # Daha küçük gizli katman
+        "n_layers": 1,         # Tek katman
         "bidirectional": True,
-        "dropout": 0.25,
+        "dropout": 0.2,
     },
+    
+    # FastText konfigürasyonu - hafifleştirilmiş
     "fasttext_config": {
-        "embedding_dim": 300,
-        "hidden_dim": 256,
-        "dropout": 0.25,
+        "embedding_dim": 100,  # Daha küçük embedding boyutu
+        "hidden_dim": 128,     # Daha küçük gizli katman
+        "dropout": 0.2,
+    },
+    
+    # Ödevdeki gibi TÜM modelleri çalıştır
+    "models_to_run": ["LSTM", "BERT", "DistilBERT", "RoBERTa", "FastText"],
+    
+    # TÜM kişiler için TÜM veri setleri
+    "people_datasets": {
+        "data_ramiz": ["imdb", "amazon", "twitter"],
+        "data_yusuf": ["bbc", "ag_news", "20newsgroups"],
+        "data_ipek": ["jigsaw", "wikipedia", "hate_speech"]
     }
 }
 
@@ -326,12 +344,8 @@ def run_experiments():
     """
     Tüm deneyleri çalıştırır
     """
-    # Kişiler ve veri setleri
-    people = {
-        "data_ramiz": ["imdb", "amazon", "twitter"],
-        "data_yusuf": ["bbc", "ag_news", "20newsgroups"],
-        "data_ipek": ["jigsaw", "wikipedia", "hate_speech"]
-    }
+    # Kişiler ve veri setleri - CONFIG'den alınıyor
+    people = CONFIG["people_datasets"]
     
     # Tokenizer'lar
     tokenizers = {
@@ -354,13 +368,19 @@ def run_experiments():
     # Sonuçlar için dizini oluştur
     os.makedirs("results", exist_ok=True)
     
+    # data_loader.py dosyasına max_samples bilgisini iletmek için çevresel değişken ayarla
+    os.environ["MAX_TRAIN_SAMPLES"] = str(CONFIG["max_train_samples"])
+    os.environ["MAX_TEST_SAMPLES"] = str(CONFIG["max_test_samples"])
+    
     # Her bir kişi için
     for person, datasets in people.items():
         # Her bir veri seti için
         for dataset in datasets:
             # Her bir model için
-            for model_name, experiment_func in experiment_funcs.items():
+            for model_name in CONFIG["models_to_run"]:
                 try:
+                    experiment_func = experiment_funcs[model_name]
+                    
                     print(f"\n{'-'*50}")
                     print(f"Başlatılıyor: {model_name} - {person} - {dataset}")
                     print(f"{'-'*50}")
@@ -388,6 +408,10 @@ def run_experiments():
                     print(f"{model_name} - {person} - {dataset} tamamlandı.")
                     print(f"Test Doğruluğu: {test_acc:.4f}, Test F1: {test_f1:.4f}")
                     
+                    # Her model+veri seti kombinasyonu için sonuçları ara yedekle
+                    results_df = pd.DataFrame(results)
+                    results_df.to_csv("results/all_results_partial.csv", index=False)
+                    
                 except Exception as e:
                     print(f"Hata: {model_name} - {person} - {dataset}")
                     print(e)
@@ -402,14 +426,45 @@ def run_experiments():
     print("\nTüm Sonuçlar:")
     print(results_df)
     
-    # Pivot tablo oluştur - Kişi ve veri seti bazında doğruluk
+    # Her bir kişi için ayrı bir sonuç tablosu oluştur ve kaydet
+    for person in people.keys():
+        person_results = results_df[results_df["Person"] == person]
+        person_results.to_csv(f"results/{person}_results.csv", index=False)
+        
+        # Kişiye özgü pivot tabloları oluştur
+        pivot_acc = person_results.pivot_table(
+            index="Dataset", 
+            columns="Model", 
+            values="Accuracy"
+        )
+        
+        pivot_f1 = person_results.pivot_table(
+            index="Dataset", 
+            columns="Model", 
+            values="F1"
+        )
+        
+        # Kişiye özgü pivot tabloları kaydet
+        pivot_acc.to_csv(f"results/{person}_accuracy_pivot.csv")
+        pivot_f1.to_csv(f"results/{person}_f1_pivot.csv")
+        
+        # Kişiye özgü sonuçları göster
+        print(f"\n{person} Sonuçları:")
+        print(person_results)
+        
+        print(f"\n{person} Doğruluk Pivot Tablosu:")
+        print(pivot_acc)
+        
+        print(f"\n{person} F1 Pivot Tablosu:")
+        print(pivot_f1)
+    
+    # Genel pivot tablolar - tüm kişiler
     pivot_acc = results_df.pivot_table(
         index=["Person", "Dataset"], 
         columns="Model", 
         values="Accuracy"
     )
     
-    # Pivot tablo oluştur - Kişi ve veri seti bazında F1
     pivot_f1 = results_df.pivot_table(
         index=["Person", "Dataset"], 
         columns="Model", 

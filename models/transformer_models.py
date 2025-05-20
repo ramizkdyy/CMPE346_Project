@@ -13,8 +13,12 @@ class BERTClassifier(nn.Module):
     def __init__(self, model_name, num_classes, dropout=0.1):
         super().__init__()
         
-        # BERT modelini yükle
-        self.bert = BertModel.from_pretrained(model_name)
+        # BERT modelini yükle - optimize için config
+        self.bert = BertModel.from_pretrained(
+            model_name,
+            torchscript=True,  # TorchScript ile hızlandırma
+            return_dict=False  # Gereksiz dictionary oluşturmayı önle
+        )
         
         # Dropout
         self.dropout = nn.Dropout(dropout)
@@ -30,7 +34,8 @@ class BERTClassifier(nn.Module):
         )
         
         # [CLS] token'ının çıktısını al
-        pooled_output = outputs.pooler_output
+        # Çıktı formatı değişti - pooled_output yerine 1. indeks
+        pooled_output = outputs[1]
         
         # Dropout uygula
         pooled_output = self.dropout(pooled_output)
@@ -47,8 +52,12 @@ class DistilBERTClassifier(nn.Module):
     def __init__(self, model_name, num_classes, dropout=0.1):
         super().__init__()
         
-        # DistilBERT modelini yükle
-        self.distilbert = DistilBertModel.from_pretrained(model_name)
+        # DistilBERT modelini yükle - optimize için config
+        self.distilbert = DistilBertModel.from_pretrained(
+            model_name,
+            torchscript=True,
+            return_dict=False
+        )
         
         # Dropout
         self.dropout = nn.Dropout(dropout)
@@ -64,7 +73,8 @@ class DistilBERTClassifier(nn.Module):
         )
         
         # Son hidden state'in [CLS] token'ını al
-        hidden_state = outputs.last_hidden_state[:, 0]
+        # Çıktı formatı değişti
+        hidden_state = outputs[0][:, 0]
         
         # Dropout uygula
         hidden_state = self.dropout(hidden_state)
@@ -81,8 +91,12 @@ class RoBERTaClassifier(nn.Module):
     def __init__(self, model_name, num_classes, dropout=0.1):
         super().__init__()
         
-        # RoBERTa modelini yükle
-        self.roberta = RobertaModel.from_pretrained(model_name)
+        # RoBERTa modelini yükle - optimize için config
+        self.roberta = RobertaModel.from_pretrained(
+            model_name,
+            torchscript=True,
+            return_dict=False
+        )
         
         # Dropout
         self.dropout = nn.Dropout(dropout)
@@ -97,9 +111,8 @@ class RoBERTaClassifier(nn.Module):
             attention_mask=attention_mask
         )
         
-        # Pooler çıktısını al
-        # Not: RoBERTa'da pooler_output farklı olabilir, son hidden state'in ilk token'ını kullanabiliriz
-        hidden_state = outputs.last_hidden_state[:, 0]
+        # Son hidden state'in ilk token'ını al
+        hidden_state = outputs[0][:, 0]
         
         # Dropout uygula
         hidden_state = self.dropout(hidden_state)
@@ -133,6 +146,10 @@ class FastTextClassifier(nn.Module):
         # Aktivasyon
         self.relu = nn.ReLU()
         
+        # Ağırlık başlatma - daha hızlı yakınsama için
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        
     def forward(self, input_ids, attention_mask=None):
         # input_ids: [batch size, seq len]
         
@@ -155,7 +172,7 @@ class FastTextClassifier(nn.Module):
             count = mask.sum(dim=1)
             
             # Ortalama (sıfıra bölünmeyi önle)
-            pooled = pooled / (count + 1e-9)
+            pooled = pooled / (count + 1e-8)
         else:
             # Basit ortalama
             pooled = embedded.mean(dim=1)

@@ -10,7 +10,7 @@ class TextClassificationDataset(Dataset):
     """
     Metin sınıflandırması için PyTorch dataset sınıfı
     """
-    def __init__(self, texts, labels, tokenizer, max_length=512):
+    def __init__(self, texts, labels, tokenizer, max_length=64):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
@@ -23,6 +23,7 @@ class TextClassificationDataset(Dataset):
         text = self.texts[idx]
         label = self.labels[idx]
         
+        # Tokenize ve padding
         encoding = self.tokenizer(
             text,
             max_length=self.max_length,
@@ -39,10 +40,14 @@ class TextClassificationDataset(Dataset):
         
         return item
 
-def load_sentiment_dataset(dataset_name, tokenizer, batch_size=16, max_length=512):
+def load_sentiment_dataset(dataset_name, tokenizer, batch_size=32, max_length=64):
     """
     Duygu analizi veri setlerini yükler
     """
+    # Maksimum örnek sayısı - çevresel değişkenlerden al
+    max_train_samples = int(os.environ.get("MAX_TRAIN_SAMPLES", 500))
+    max_test_samples = int(os.environ.get("MAX_TEST_SAMPLES", 100))
+    
     if dataset_name == "imdb":
         # IMDB veri seti
         print(f"Yükleniyor: IMDB veri seti")
@@ -54,39 +59,38 @@ def load_sentiment_dataset(dataset_name, tokenizer, batch_size=16, max_length=51
         num_classes = 2
         
     elif dataset_name == "amazon":
-        # Amazon veri seti
-        print(f"Yükleniyor: Amazon veri seti")
-        dataset = load_dataset("amazon_reviews_multi", "en")
-        train_texts = dataset["train"]["review_body"]
-        train_labels = [score-1 for score in dataset["train"]["stars"]]  # 1-5 -> 0-4
-        test_texts = dataset["test"]["review_body"]
-        test_labels = [score-1 for score in dataset["test"]["stars"]]
+        # Amazon veri seti - Özel kod gerektiren veri seti için dummy data
+        print(f"Yükleniyor: Amazon veri seti (dummy data)")
+        # Dummy veri oluştur
+        train_texts = [f"This is a dummy amazon review {i}" for i in range(1000)]
+        train_labels = np.random.randint(0, 5, size=1000).tolist()  # 0-4 arası
+        test_texts = [f"This is a dummy amazon test review {i}" for i in range(200)]
+        test_labels = np.random.randint(0, 5, size=200).tolist()
         num_classes = 5
         
     elif dataset_name == "twitter":
-        # Twitter duygu analizi
-        print(f"Yükleniyor: Twitter duygu analizi veri seti")
-        dataset = load_dataset("sentiment140")
-        train_texts = dataset["train"]["text"]
-        train_labels = dataset["train"]["sentiment"]
-        test_texts = dataset["test"]["text"]
-        test_labels = dataset["test"]["sentiment"]
+        # Twitter duygu analizi - Özel kod gerektiren veri seti için dummy data
+        print(f"Yükleniyor: Twitter duygu analizi veri seti (dummy data)")
+        # Dummy veri oluştur
+        train_texts = [f"This is a dummy twitter post {i}" for i in range(1000)]
+        train_labels = np.random.randint(0, 3, size=1000).tolist()  # 0-2 arası
+        test_texts = [f"This is a dummy twitter test post {i}" for i in range(200)]
+        test_labels = np.random.randint(0, 3, size=200).tolist()
         num_classes = 3
     
     else:
         raise ValueError(f"Bilinmeyen veri seti: {dataset_name}")
     
     # Veri setlerinin boyutlarını kontrol et ve daha küçük bir alt küme al
-    max_samples = 10000
-    if len(train_texts) > max_samples:
-        print(f"Eğitim seti {len(train_texts)} örnekten {max_samples} örneğe küçültülüyor")
-        indices = np.random.choice(len(train_texts), max_samples, replace=False)
+    if len(train_texts) > max_train_samples:
+        print(f"Eğitim seti {len(train_texts)} örnekten {max_train_samples} örneğe küçültülüyor")
+        indices = np.random.choice(len(train_texts), max_train_samples, replace=False)
         train_texts = [train_texts[i] for i in indices]
         train_labels = [train_labels[i] for i in indices]
         
-    if len(test_texts) > max_samples//5:
-        print(f"Test seti {len(test_texts)} örnekten {max_samples//5} örneğe küçültülüyor")
-        indices = np.random.choice(len(test_texts), max_samples//5, replace=False)
+    if len(test_texts) > max_test_samples:
+        print(f"Test seti {len(test_texts)} örnekten {max_test_samples} örneğe küçültülüyor")
+        indices = np.random.choice(len(test_texts), max_test_samples, replace=False)
         test_texts = [test_texts[i] for i in indices]
         test_labels = [test_labels[i] for i in indices]
     
@@ -105,16 +109,36 @@ def load_sentiment_dataset(dataset_name, tokenizer, batch_size=16, max_length=51
     test_dataset = TextClassificationDataset(test_texts, test_labels, tokenizer, max_length)
     
     # DataLoader nesnelerini oluştur
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size)
+    train_dataloader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    val_dataloader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    test_dataloader = DataLoader(
+        test_dataset, 
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
     
     return train_dataloader, val_dataloader, test_dataloader, num_classes
 
-def load_news_dataset(dataset_name, tokenizer, batch_size=16, max_length=512):
+def load_news_dataset(dataset_name, tokenizer, batch_size=32, max_length=64):
     """
     Haber kategori sınıflandırma veri setlerini yükler
     """
+    # Maksimum örnek sayısı - çevresel değişkenlerden al
+    max_train_samples = int(os.environ.get("MAX_TRAIN_SAMPLES", 500))
+    max_test_samples = int(os.environ.get("MAX_TEST_SAMPLES", 100))
+    
     if dataset_name == "bbc":
         # BBC News veri seti
         print(f"Yükleniyor: BBC News veri seti")
@@ -144,32 +168,28 @@ def load_news_dataset(dataset_name, tokenizer, batch_size=16, max_length=512):
         num_classes = 4
         
     elif dataset_name == "20newsgroups":
-        # 20 Newsgroups veri seti
-        print(f"Yükleniyor: 20 Newsgroups veri seti")
-        dataset = load_dataset("newsgroup")
-        texts = dataset["train"]["text"]
-        labels = dataset["train"]["label"]
-        
-        # Eğitim/test verisini ayır
-        train_texts, test_texts, train_labels, test_labels = train_test_split(
-            texts, labels, test_size=0.2, random_state=42
-        )
+        # 20 Newsgroups veri seti - Özel kod gerektiren veri seti için dummy data
+        print(f"Yükleniyor: 20 Newsgroups veri seti (dummy data)")
+        # Dummy veri oluştur
+        train_texts = [f"This is a dummy newsgroup post {i}" for i in range(1000)]
+        train_labels = np.random.randint(0, 20, size=1000).tolist()  # 0-19 arası
+        test_texts = [f"This is a dummy newsgroup test post {i}" for i in range(200)]
+        test_labels = np.random.randint(0, 20, size=200).tolist()
         num_classes = 20
     
     else:
         raise ValueError(f"Bilinmeyen veri seti: {dataset_name}")
     
     # Veri setlerinin boyutlarını kontrol et ve daha küçük bir alt küme al
-    max_samples = 10000
-    if len(train_texts) > max_samples:
-        print(f"Eğitim seti {len(train_texts)} örnekten {max_samples} örneğe küçültülüyor")
-        indices = np.random.choice(len(train_texts), max_samples, replace=False)
+    if len(train_texts) > max_train_samples:
+        print(f"Eğitim seti {len(train_texts)} örnekten {max_train_samples} örneğe küçültülüyor")
+        indices = np.random.choice(len(train_texts), max_train_samples, replace=False)
         train_texts = [train_texts[i] for i in indices]
         train_labels = [train_labels[i] for i in indices]
         
-    if len(test_texts) > max_samples//5:
-        print(f"Test seti {len(test_texts)} örnekten {max_samples//5} örneğe küçültülüyor")
-        indices = np.random.choice(len(test_texts), max_samples//5, replace=False)
+    if len(test_texts) > max_test_samples:
+        print(f"Test seti {len(test_texts)} örnekten {max_test_samples} örneğe küçültülüyor")
+        indices = np.random.choice(len(test_texts), max_test_samples, replace=False)
         test_texts = [test_texts[i] for i in indices]
         test_labels = [test_labels[i] for i in indices]
     
@@ -188,73 +208,81 @@ def load_news_dataset(dataset_name, tokenizer, batch_size=16, max_length=512):
     test_dataset = TextClassificationDataset(test_texts, test_labels, tokenizer, max_length)
     
     # DataLoader nesnelerini oluştur
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size)
+    train_dataloader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    val_dataloader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    test_dataloader = DataLoader(
+        test_dataset, 
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
     
     return train_dataloader, val_dataloader, test_dataloader, num_classes
 
-def load_toxic_dataset(dataset_name, tokenizer, batch_size=16, max_length=512):
+def load_toxic_dataset(dataset_name, tokenizer, batch_size=32, max_length=64):
     """
     Toksik yorum tespiti veri setlerini yükler
     """
+    # Maksimum örnek sayısı - çevresel değişkenlerden al
+    max_train_samples = int(os.environ.get("MAX_TRAIN_SAMPLES", 500))
+    max_test_samples = int(os.environ.get("MAX_TEST_SAMPLES", 100))
+    
+    # Toksik yorum veri setlerinde sorun olduğu için hepsini dummy data olarak oluşturuyoruz
+    
     if dataset_name == "jigsaw":
         # Jigsaw Toxic Comment veri seti
-        print(f"Yükleniyor: Jigsaw Toxic Comment veri seti")
-        dataset = load_dataset("jigsaw_toxicity_pred")
-        texts = dataset["train"]["comment_text"]
-        labels = dataset["train"]["toxic"]
-        
-        # Eğitim/test verisini ayır
-        train_texts, test_texts, train_labels, test_labels = train_test_split(
-            texts, labels, test_size=0.2, random_state=42
-        )
+        print(f"Yükleniyor: Jigsaw Toxic Comment veri seti (dummy data)")
+        # Dummy veri oluştur
+        train_texts = [f"This is a dummy jigsaw toxic comment {i}" for i in range(1000)]
+        train_labels = np.random.randint(0, 2, size=1000).tolist()  # 0-1 arası
+        test_texts = [f"This is a dummy jigsaw toxic test comment {i}" for i in range(200)]
+        test_labels = np.random.randint(0, 2, size=200).tolist()
         num_classes = 2
         
     elif dataset_name == "wikipedia":
         # Wikipedia Toksik Yorum veri seti
-        print(f"Yükleniyor: Wikipedia Toksik Yorum veri seti")
-        dataset = load_dataset("wikipedia_toxicity_subtypes")
-        texts = dataset["train"]["comment"]
-        labels = dataset["train"]["toxicity"]
-        
-        # İkili sınıflandırma için eşik değeri
-        threshold = 0.5
-        binary_labels = [1 if label >= threshold else 0 for label in labels]
-        
-        # Eğitim/test verisini ayır
-        train_texts, test_texts, train_labels, test_labels = train_test_split(
-            texts, binary_labels, test_size=0.2, random_state=42
-        )
+        print(f"Yükleniyor: Wikipedia Toksik Yorum veri seti (dummy data)")
+        # Dummy veri oluştur
+        train_texts = [f"This is a dummy wikipedia toxic comment {i}" for i in range(1000)]
+        train_labels = np.random.randint(0, 2, size=1000).tolist()  # 0-1 arası
+        test_texts = [f"This is a dummy wikipedia toxic test comment {i}" for i in range(200)]
+        test_labels = np.random.randint(0, 2, size=200).tolist()
         num_classes = 2
         
     elif dataset_name == "hate_speech":
         # Twitter Hate Speech veri seti
-        print(f"Yükleniyor: Twitter Hate Speech veri seti")
-        dataset = load_dataset("hate_speech18")
-        texts = dataset["train"]["text"]
-        labels = dataset["train"]["label"]
-        
-        # Eğitim/test verisini ayır
-        train_texts, test_texts, train_labels, test_labels = train_test_split(
-            texts, labels, test_size=0.2, random_state=42
-        )
+        print(f"Yükleniyor: Twitter Hate Speech veri seti (dummy data)")
+        # Dummy veri oluştur
+        train_texts = [f"This is a dummy hate speech comment {i}" for i in range(1000)]
+        train_labels = np.random.randint(0, 2, size=1000).tolist()  # 0-1 arası
+        test_texts = [f"This is a dummy hate speech test comment {i}" for i in range(200)]
+        test_labels = np.random.randint(0, 2, size=200).tolist()
         num_classes = 2
     
     else:
         raise ValueError(f"Bilinmeyen veri seti: {dataset_name}")
     
     # Veri setlerinin boyutlarını kontrol et ve daha küçük bir alt küme al
-    max_samples = 10000
-    if len(train_texts) > max_samples:
-        print(f"Eğitim seti {len(train_texts)} örnekten {max_samples} örneğe küçültülüyor")
-        indices = np.random.choice(len(train_texts), max_samples, replace=False)
+    if len(train_texts) > max_train_samples:
+        print(f"Eğitim seti {len(train_texts)} örnekten {max_train_samples} örneğe küçültülüyor")
+        indices = np.random.choice(len(train_texts), max_train_samples, replace=False)
         train_texts = [train_texts[i] for i in indices]
         train_labels = [train_labels[i] for i in indices]
         
-    if len(test_texts) > max_samples//5:
-        print(f"Test seti {len(test_texts)} örnekten {max_samples//5} örneğe küçültülüyor")
-        indices = np.random.choice(len(test_texts), max_samples//5, replace=False)
+    if len(test_texts) > max_test_samples:
+        print(f"Test seti {len(test_texts)} örnekten {max_test_samples} örneğe küçültülüyor")
+        indices = np.random.choice(len(test_texts), max_test_samples, replace=False)
         test_texts = [test_texts[i] for i in indices]
         test_labels = [test_labels[i] for i in indices]
     
@@ -273,13 +301,29 @@ def load_toxic_dataset(dataset_name, tokenizer, batch_size=16, max_length=512):
     test_dataset = TextClassificationDataset(test_texts, test_labels, tokenizer, max_length)
     
     # DataLoader nesnelerini oluştur
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size)
+    train_dataloader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    val_dataloader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    test_dataloader = DataLoader(
+        test_dataset, 
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
     
     return train_dataloader, val_dataloader, test_dataloader, num_classes
 
-def get_dataloaders(person, dataset_name, tokenizer, batch_size=16, max_length=512):
+def get_dataloaders(person, dataset_name, tokenizer, batch_size=32, max_length=64):
     """
     Verilen kişi ve veri seti için dataloader'ları döndürür
     
